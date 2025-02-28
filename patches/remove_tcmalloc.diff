@@ -1,0 +1,13 @@
+diff --git a/bazel/malloc/BUILD b/bazel/malloc/BUILD
+index b404ee5f..a9f7949c 100644
+--- a/bazel/malloc/BUILD
++++ b/bazel/malloc/BUILD
+@@ -28,7 +28,7 @@ selects.config_setting_group(
+ cc_library(
+     name = "tcmalloc_if_linux_opt",
+     deps = select({
+-        ":linux_opt": ["@tcmalloc//tcmalloc"],
++        ":linux_opt": [],
+         "//conditions:default": ["@bazel_tools//tools/cpp:malloc"],
+     }),
+ )

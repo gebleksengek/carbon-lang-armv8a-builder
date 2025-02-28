@@ -1,0 +1,85 @@
+name: Nightly Release ARMv8-a
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  CARBON_LANG_WORKDIR: carbon-lang
+  BUILDER_WORKDIR: builder
+      
+jobs:
+  release:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update && \
+          sudo apt-get install -y \
+          clang \
+          llvm \
+          libc++-dev \
+          libc++abi-dev \
+          lld
+
+      - uses: actions/checkout@v4
+        with:
+          repository: "carbon-language/carbon-lang"
+          path: ${{ env.CARBON_LANG_WORKDIR }}
+          clean: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/checkout@v4
+        with:
+          path: ${{ env.BUILDER_WORKDIR }}
+          clean: false
+
+      - name: Checkout to Latest Tag and Set nightly_date
+        working-directory: ${{ env.CARBON_LANG_WORKDIR }}
+        run: |
+          latest_tag=$(git describe --tags --match 'v0.0.0*nightly*')
+          echo Latest release tags: $latest_tag
+          git checkout $latest_tag
+          echo "nightly_date=$(echo $latest_tag | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}')" >> $GITHUB_ENV
+
+      - name: Apply patches
+        working-directory: ${{ env.CARBON_LANG_WORKDIR }}
+        run: |
+          git apply ../${{ env.BUILDER_WORKDIR }}/patches/*diff
+
+      - uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          bazelrc: |
+            build --jobs=32
+            build --nostamp
+            build --verbose_failures
+            test --test_output=errors
+          disk-cache: true
+          module-root: ${{ env.CARBON_LANG_WORKDIR }}
+
+      - name: Build release
+        working-directory: ${{ env.CARBON_LANG_WORKDIR }}
+        run: |
+            bazelisk test -c opt \
+            --pre_release=nightly --nightly_date=${{ env.nightly_date }} \
+            //toolchain \
+            //toolchain/install:carbon_toolchain_tar_gz_rule \
+            //toolchain/install:carbon_toolchain_tar_gz_test
+
+      - name: Extract the release version
+        working-directory: ${{ env.CARBON_LANG_WORKDIR }}
+        run: |
+          ./bazel-bin/toolchain/carbon version
+          VERSION=$( \
+            ./bazel-bin/toolchain/carbon version \
+            | cut -d' ' -f5 | cut -d'+' -f1)
+          echo "release_version=$VERSION" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: carbon_toolchain-${{ env.release_version }}
+          path: ${{ env.CARBON_LANG_WORKDIR }}/bazel-bin/toolchain/install/carbon_toolchain-${{ env.release_version }}.tar.gz
