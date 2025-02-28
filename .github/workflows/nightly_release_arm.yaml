@@ -1,6 +1,8 @@
 name: Nightly Release ARMv8-a
 
 on:
+  schedule:
+    - cron: 0 4 * * *
   push:
     branches:
       - main
@@ -45,30 +47,36 @@ jobs:
           git checkout $latest_tag
           echo "nightly_date=$(echo $latest_tag | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}')" >> $GITHUB_ENV
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/carbon-lang-build-cache
+          key: ${{ runner.os }}-bazel_disk_cache
+
       - name: Apply patches
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
         run: |
           git apply ../${{ env.BUILDER_WORKDIR }}/patches/*diff
 
-      - uses: bazel-contrib/setup-bazel@0.14.0
-        with:
-          bazelisk-cache: true
-          bazelrc: |
-            build --jobs=32
-            build --nostamp
-            build --verbose_failures
-            test --test_output=errors
-          disk-cache: true
-          module-root: ${{ env.CARBON_LANG_WORKDIR }}
+      - name: Create user.bazelrc
+        working-directory: ${{ env.CARBON_LANG_WORKDIR }}
+        run: |
+          cat > user.bazelrc << EOF
+          common --custom_malloc=@bazel_tools//tools/cpp:malloc
+          build --jobs=32
+          build --nostamp
+          build --verbose_failures
+          test --test_output=errors
+          EOF
+          ./scripts/run_bazelisk.py info
 
       - name: Build release
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
         run: |
-            bazelisk test -c opt \
-            --pre_release=nightly --nightly_date=${{ env.nightly_date }} \
-            //toolchain \
-            //toolchain/install:carbon_toolchain_tar_gz_rule \
-            //toolchain/install:carbon_toolchain_tar_gz_test
+          ./scripts/run_bazelisk.py test -c opt \
+          --pre_release=nightly --nightly_date=${{ env.nightly_date }} \
+          //toolchain \
+          //toolchain/install:carbon_toolchain_tar_gz_rule \
+          //toolchain/install:carbon_toolchain_tar_gz_test
 
       - name: Extract the release version
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
