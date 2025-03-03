@@ -39,7 +39,7 @@ jobs:
           latest_tag: ${{ inputs.nightly_release_tag }}
         run: |
           if [ -z "${latest_tag}" ]; then
-            latest_tag=$(git describe --tags --match 'v0.0.0*nightly*')
+            latest_tag=$(git tag --list "*nightly*" --sort=-v:refname | head -n 1)
           fi
           echo Latest release tags: $latest_tag
           git checkout $latest_tag
@@ -48,7 +48,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/carbon-lang-build-cache
-          key: ${{ runner.os }}-bazel_disk_cache
+          key: ${{ runner.os }}-bazel_disk_cache-${{ github.run_id }}
+          restore-keys: ${{ runner.os }}-bazel_disk_cache
 
       - name: Apply patches
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
