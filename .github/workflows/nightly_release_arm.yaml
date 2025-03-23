@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           cd ~
-          LLVM_RELEASE=clang+llvm-16.0.4-x86_64-linux-gnu-ubuntu-22.04
+          LLVM_RELEASE=clang+llvm-16.0.6-aarch64-linux-gnu
           echo "*** Downloading $LLVM_RELEASE"
           wget --show-progress=off "https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.4/$LLVM_RELEASE.tar.xz"
           echo "*** Extracting $LLVM_RELEASE"
