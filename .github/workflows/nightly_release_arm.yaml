@@ -45,26 +45,55 @@ jobs:
           git checkout $latest_tag
           echo "nightly_date=$(echo $latest_tag | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}')" >> $GITHUB_ENV
 
-      - uses: actions/cache@v4
+      - uses: bazel-contrib/setup-bazel@0.14.0
         with:
-          path: ~/.cache/carbon-lang-build-cache
-          key: ${{ runner.os }}-bazel_disk_cache-${{ github.run_id }}
-          restore-keys: ${{ runner.os }}-bazel_disk_cache
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+          external-cache: true
 
       - name: Apply patches
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
         run: |
           git apply ../${{ env.BUILDER_WORKDIR }}/patches/*patch
 
-      - name: Install Build Dependencies
+      - uses: actions/cache@v4
+        id: llvm-cache
+        with:
+          path: ~/llvm
+          key: ${{ runner.os }}-${{ runner.arch }}-llvm_16_cache
+
+      - name: Download LLVM and Clang Installation
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        shell: bash
         run: |
-          sudo apt-get update && \
-          sudo apt-get install -y \
-            clang \
-            llvm \
-            libc++-dev \
-            libc++abi-dev \
-            lld
+          cd ~
+          LLVM_RELEASE=clang+llvm-16.0.4-x86_64-linux-gnu-ubuntu-22.04
+          echo "*** Downloading $LLVM_RELEASE"
+          wget --show-progress=off "https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.4/$LLVM_RELEASE.tar.xz"
+          echo "*** Extracting $LLVM_RELEASE"
+          tar -xJf "$LLVM_RELEASE.tar.xz"
+          echo "*** Moving to 'llvm'"
+          mv "$LLVM_RELEASE" llvm
+          echo "*** Testing `clang++ --version`"
+          ~/llvm/bin/clang++ --version
+
+          echo "*** Cleaning the 'llvm' directory"
+          rm llvm/lib/{*.a,*.so,*.so.*,*.bc}
+          rm llvm/bin/{flang-*,mlir-*,clang-{scan-deps,check,repl},*-test,llvm-{lto*,reduce,bolt*,exegesis,jitlink},bugpoint,opt,llc}
+          echo "*** Size of the 'llvm' directory"
+          du -hs llvm
+
+      - name: Setup LLVM and Clang paths
+        shell: bash
+        run: |
+          LLVM_PATH=~/llvm
+          echo "Using ${LLVM_PATH}"
+          echo "${LLVM_PATH}/bin" >> $GITHUB_PATH
+          echo '*** ls "${LLVM_PATH}"'
+          ls "${LLVM_PATH}"
+          echo '*** ls "${LLVM_PATH}/bin"'
+          ls "${LLVM_PATH}/bin"
 
       - name: Create user.bazelrc
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
@@ -76,12 +105,12 @@ jobs:
           build --verbose_failures
           test --test_output=errors
           EOF
-          ./scripts/run_bazelisk.py info
+          bazelisk info
 
       - name: Build release
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
         run: |
-          ./scripts/run_bazelisk.py test -c opt \
+          bazelisk test -c opt \
             --pre_release=nightly --nightly_date=${{ env.nightly_date }} \
             //toolchain \
             //toolchain/install:carbon_toolchain_tar_gz_rule \
