@@ -103,7 +103,7 @@ jobs:
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
         run: |
           cat > user.bazelrc << EOF
-          build --disk_cache=~/.cache/bazel-disk
+          common --disk_cache=~/.cache/bazel-disk
           common --custom_malloc=@bazel_tools//tools/cpp:malloc
           build --jobs=32
           build --nostamp
