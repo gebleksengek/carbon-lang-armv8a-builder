@@ -17,6 +17,8 @@
       - uses: actions/checkout@v4
 
       - name: Run cleaner script
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           chmod +x ./scripts/delete-unused-cache.sh
           ./scripts/delete-unused-cache.sh
