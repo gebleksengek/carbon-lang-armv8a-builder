@@ -1,0 +1,22 @@
+ name: Clean Actions GitHub Cache
+
+ on:
+  schedule:
+    - cron: 0 8 * * *
+  workflow_dispatch:
+
+ jobs:
+   clean:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update && \
+          apt-get install jq
+
+      - uses: actions/checkout@v4
+
+      - name: Run cleaner script
+        run: |
+          chmod +x ./scripts/delete-unused-cache.sh
+          ./scripts/delete-unused-cache.sh
