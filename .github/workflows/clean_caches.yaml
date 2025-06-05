@@ -8,6 +8,8 @@
  jobs:
    clean:
     runs-on: ubuntu-24.04
+    permissions:
+      actions: write
     steps:
       - uses: actions/checkout@v4
       
