@@ -59,7 +59,6 @@ jobs:
           module-root: ${{ env.CARBON_LANG_WORKDIR }}
           bazelrc: |
             common --custom_malloc=@bazel_tools//tools/cpp:malloc
-            build --jobs=32
             build --nostamp
             build --verbose_failures
             test --test_output=errors
