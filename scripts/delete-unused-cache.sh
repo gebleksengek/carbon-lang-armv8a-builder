@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cutoff_date=$(date -u +"%Y-%m-%dT00:00:00Z")
+cutoff_date=$(date -u -d "24 hours ago" +"%Y-%m-%dT%H:%M:%SZ")
 echo "Caches last accessed before $cutoff_date will be deleted."
 
 gh cache list --json id,key,lastAccessedAt --jq .[] | while read -r cache; do

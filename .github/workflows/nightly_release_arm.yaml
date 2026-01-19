@@ -20,43 +20,50 @@ jobs:
   release:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: "carbon-language/carbon-lang"
-          path: ${{ env.CARBON_LANG_WORKDIR }}
-          clean: false
-          fetch-depth: 0
-          fetch-tags: true
-
-      - uses: actions/checkout@v4
-        with:
-          path: ${{ env.BUILDER_WORKDIR }}
-          clean: false
-
       - name: Checkout to Latest Tag and Set nightly_date
-        working-directory: ${{ env.CARBON_LANG_WORKDIR }}
+        id: get_tag
         env:
           latest_tag: ${{ inputs.nightly_release_tag }}
         run: |
-          if [ -z "${latest_tag}" ]; then
-            latest_tag=$(git tag --list "*nightly*" --sort=-v:refname | head -n 1)
+          LATEST_TAG=${{ inputs.nightly_release_tag }}
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG=$(git ls-remote --tags --sort="-v:refname" https://github.com/carbon-language/carbon-lang.git "*nightly*" | head -n 1 | cut -d'/' -f3)
           fi
-          echo Latest release tags: $latest_tag
-          git checkout $latest_tag
-          echo "nightly_date=$(echo $latest_tag | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}')" >> $GITHUB_ENV
-
-      - uses: bazel-contrib/setup-bazel@0.14.0
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "nightly_date=$(echo $LATEST_TAG | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}')" >> $GITHUB_ENV
+          
+      - uses: actions/checkout@v6
+        name: Clone carbon language repository
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-          external-cache: true
+          repository: "carbon-language/carbon-lang"
+          path: ${{ env.CARBON_LANG_WORKDIR }}
+          ref: ${{ steps.get_tag.outputs.tag }}
+          clean: false
 
+      - uses: actions/checkout@v6
+        with:
+          path: ${{ env.BUILDER_WORKDIR }}
+          clean: false
+          
       - name: Apply patches
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
         run: |
           git apply -v ../${{ env.BUILDER_WORKDIR }}/patches/*patch
 
+      - uses: bazel-contrib/setup-bazel@0.18.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+          external-cache: true
+          module-root: ${{ env.CARBON_LANG_WORKDIR }}
+          bazelrc: |
+            common --custom_malloc=@bazel_tools//tools/cpp:malloc
+            build --jobs=32
+            build --nostamp
+            build --verbose_failures
+            test --test_output=errors
+            
       - uses: actions/cache@v4
         id: llvm-cache
         with:
@@ -85,6 +92,7 @@ jobs:
           echo "*** Cleaning the 'llvm' directory"
           rm $LLVM_PATH/lib/{*.a,*.so,*.so.*}
           rm $LLVM_PATH/bin/{flang-*,mlir-*,clang-{scan-deps,check,repl},*-test,llvm-{lto*,reduce,bolt*,exegesis,jitlink},bugpoint,opt,llc}
+          rm -rf $LLVM_PATH/share/{doc,man}
           echo "*** Size of the 'llvm' directory"
           du -hs $LLVM_PATH
 
@@ -98,19 +106,8 @@ jobs:
           ls "${LLVM_PATH}"
           echo '*** ls "${LLVM_PATH}/bin"'
           ls "${LLVM_PATH}/bin"
-
-      - name: Create user.bazelrc
-        working-directory: ${{ env.CARBON_LANG_WORKDIR }}
-        run: |
-          cat > user.bazelrc << EOF
-          common --disk_cache=~/.cache/bazel-disk
-          common --custom_malloc=@bazel_tools//tools/cpp:malloc
-          build --jobs=32
-          build --nostamp
-          build --verbose_failures
-          test --test_output=errors
-          EOF
-          bazelisk info
+          echo "CC=$HOME/llvm/bin/clang" >> $GITHUB_ENV
+          echo "CXX=$HOME/llvm/bin/clang++" >> $GITHUB_ENV
 
       - name: Build release
         working-directory: ${{ env.CARBON_LANG_WORKDIR }}
