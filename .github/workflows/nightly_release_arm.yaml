@@ -73,7 +73,7 @@ jobs:
         id: llvm-cache
         with:
           path: ~/llvm
-          key: ${{ runner.os }}-${{ runner.arch }}-llvm_19_cache
+          key: ${{ runner.os }}-${{ runner.arch }}-llvm_20_cache
 
       - name: Download LLVM and Clang Installation
         if: steps.llvm-cache.outputs.cache-hit != 'true'
