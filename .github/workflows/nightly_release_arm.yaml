@@ -81,7 +81,7 @@ jobs:
         run: |
           cd ~
           LLVM_RELEASE=20.1.8
-          LLVM_TARBALL_NAME=clang+llvm-$LLVM_RELEASE-aarch64-linux-gnu
+          LLVM_TARBALL_NAME=LLVM-$LLVM_RELEASE-Linux-ARM64
           LLVM_PATH=~/llvm
           echo "*** Downloading $LLVM_RELEASE"
           wget --show-progress=off "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_RELEASE/$LLVM_TARBALL_NAME.tar.xz"
