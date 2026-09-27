@@ -73,14 +73,14 @@ jobs:
         id: llvm-cache
         with:
           path: ~/llvm
-          key: ${{ runner.os }}-${{ runner.arch }}-llvm_20_cache
+          key: ${{ runner.os }}-${{ runner.arch }}-llvm_21_cache
 
       - name: Download LLVM and Clang Installation
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           cd ~
-          LLVM_RELEASE=20.1.8
+          LLVM_RELEASE=21.1.8
           LLVM_TARBALL_NAME=LLVM-$LLVM_RELEASE-Linux-ARM64
           LLVM_PATH=~/llvm
           echo "*** Downloading $LLVM_RELEASE"
